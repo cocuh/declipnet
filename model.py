@@ -31,8 +31,8 @@ def quantize(input_batch, channels):
     )
 
 
-def decode(self, input_batch, channels):
-    return tf.clip_by_value(tf.cast(input_batch, 'float') * 2 / (channels - 1) - 1, -1, 1)
+def decode(input_batch, channels):
+    return tf.cast(input_batch, 'float') * 2 / (channels - 1) - 1
 
 
 class Wavenet(object):
@@ -343,10 +343,7 @@ class Declipper(object):
             with tf.name_scope('predict'):
                 prediction_idx = tf.argmax(wavenet_output, 2)
                 label_idx = tf.argmax(label, 2)
-                prediction_float = tf.cast(
-                    prediction_idx,
-                    "float",
-                ) * 2 / (self.output_quantization_channels - 1) - 1
+                prediction_float = decode(prediction_idx, self.output_quantization_channels)
 
             with tf.name_scope('accuracy'):
                 accuracy = tf.reduce_mean(
