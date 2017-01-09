@@ -23,3 +23,9 @@ $ pip install numpy tensorflow-gpu soundfile librosa
 $ python main.py
 $ tensorboard --logdir ./result/log
 ```
+
+special thanks
+--------------
+To impl this, I referenced the ibab's implementation.
+
+https://github.com/ibab/tensorflow-wavenet
