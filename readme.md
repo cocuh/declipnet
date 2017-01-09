@@ -5,6 +5,8 @@ C91 sigcoww L0 vol.1にて書いた音割れ音源を復元する深層学習モ
 
 https://sigcoww.github.io/posts/2016/11/06/c91.html
 
+https://sigcoww.booth.pm/items/407104
+
 
 使い方
 ------
