@@ -1,122 +1,129 @@
-import fnmatch
 import os
-import re
+import fnmatch
+import random
+import itertools as it
 import threading
-from random import shuffle
 
-import librosa
-import soundfile
+import soundfile as sf
 import numpy as np
 import tensorflow as tf
 
 
-def find_files(directory, pattern='*.ogg'):
-    '''Recursively finds all files matching the pattern.'''
+def find_files(directory, patterns):
     files = []
     for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
+        for pattern in patterns:
+            for filename in fnmatch.filter(filenames, pattern):
+                files.append(os.path.join(root, filename))
     return files
 
 
-def load_generic_audio(directory, sample_rate, pattern='*.wav'):
-    '''Generator that yields audio waveforms from the directory.'''
-    files = find_files(directory, pattern)
-    shuffle(files)
-    for filename in files:
-        audio, _ = soundfile.read(filename)
-        yield audio.T[0].reshape(-1, 1), filename
-        yield audio.T[1].reshape(-1, 1), filename
-
-
-def trim_silence(audio, threshold):
-    '''Removes silence at the beginning and end of a sample.'''
-    energy = librosa.feature.rmse(audio)
-    frames = np.nonzero(energy > threshold)
-    indices = librosa.core.frames_to_samples(frames)[1]
-
-    # Note: indices can be an empty array, if the whole audio was silence.
-    return audio[indices[0]:indices[-1]] if indices.size else audio[0:0]
-
-
-class MultipleAudioReader(object):
-    '''Generic background audio reader that preprocesses audio files
-    and enqueues them into a TensorFlow queue.'''
-
+class MultipleAudioReader:
     def __init__(self,
-                 audio_dir,
-                 coord,
-                 sample_rate,
-                 audio_pattern='*.wav',
-                 sample_size=None,
-                 silence_threshold=0.3,
-                 queue_size=32):
+                 audio_dir: str,
+                 coord: tf.train.Coordinator,
+                 sample_rate: int,
+                 audio_patterns=None,
+                 sample_size=2 ** 16,
+                 queue_size=32,
+                 ):
+        if audio_patterns is None:
+            audio_patterns = ['*.ogg']
         self.audio_dir = audio_dir
-        self.audio_pattern = audio_pattern
-        self.sample_rate = sample_rate
         self.coord = coord
+        self.audio_patterns = audio_patterns
+        self.sample_rate = sample_rate
         self.sample_size = sample_size
-        self.silence_threshold = silence_threshold
-        self.threads = []
-        self.sample_placeholder = tf.placeholder(dtype=tf.float32, shape=None)
-        self.queue = tf.PaddingFIFOQueue(queue_size,
-                                         ['float32'],
-                                         shapes=[(None, 1)])
+        self.queue_size = queue_size
+        self.sample_placeholder = tf.placeholder(
+            dtype=tf.float32,
+            shape=(sample_size,),
+            name='sample',
+        )
+        self.queue = tf.PaddingFIFOQueue(
+            queue_size,
+            [tf.float32],
+            shapes=[(sample_size,)]
+        )
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
+        self.threads = []
+        if len(find_files(self.audio_dir, self.audio_patterns)) == 0:
+            raise ValueError('file not found')
 
-        # TODO Find a better way to check this.
-        # Checking inside the AudioReader's thread makes it hard to terminate
-        # the execution of the script, so we do it in the constructor for now.
-        if not find_files(audio_dir, audio_pattern):
-            raise ValueError("No audio files found in '{}'.".format(audio_dir))
-
-    def dequeue(self, num_elements):
+    def dequeue_many(self, num_elements: int):
         output = self.queue.dequeue_many(num_elements)
         return output
 
-    def thread_main(self, sess):
-        buffer_ = np.array([])
-        stop = False
-        # Go through the dataset multiple times
-        while not stop:
-            iterator = load_generic_audio(
-                self.audio_dir,
-                self.sample_rate,
-                pattern=self.audio_pattern,
-            )
-            for audio, filename in iterator:
-                print('loading: {}'.format(filename))
-                if self.coord.should_stop():
-                    stop = True
-                    break
-                if self.silence_threshold is not None:
-                    # Remove silence
-                    audio = trim_silence(audio[:, 0], self.silence_threshold)
-                    audio = audio.reshape(-1, 1)
-                    if audio.size == 0:
-                        print("Warning: {} was ignored as it contains only "
-                              "silence. Consider decreasing trim_silence "
-                              "threshold, or adjust volume of the audio."
-                              .format(filename))
+    def dequeue(self):
+        output = self.queue.dequeue()
+        return output
 
-                if self.sample_size:
-                    # Cut samples into fixed size pieces
-                    buffer_ = np.append(buffer_, audio)
-                    while len(buffer_) > self.sample_size:
-                        piece = np.reshape(buffer_[:self.sample_size], [-1, 1])
-                        buffer_ = buffer_[self.sample_size:]
-                        if np.max(np.abs(piece)) < self.silence_threshold:
-                            continue
-                        sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                else:
-                    sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
-
-    def start_threads(self, sess, n_threads=1):
-        for _ in range(n_threads):
-            thread = threading.Thread(target=self.thread_main, args=(sess,))
-            thread.daemon = True  # Thread will close when parent quits.
+    def start_threads(self, sess: tf.Session, thread_num=2):
+        for _ in range(thread_num):
+            thread = threading.Thread(target=self._worker, kwargs={'sess': sess})
+            thread.daemon = True  # thread will close when parent process quits
             thread.start()
             self.threads.append(thread)
         return self.threads
+
+    def _worker(self, sess: tf.Session):
+        should_stop = False
+        while not should_stop:
+            filepaths = find_files(self.audio_dir, self.audio_patterns)
+            random.shuffle(filepaths)
+            file_generator = it.chain.from_iterable(
+                self._load_sound(filepath)
+                for filepath in filepaths
+            )
+            buffer = np.array([])
+            for data, filepath in file_generator:
+                print('reading: {}'.format(filepath))
+                if self.coord.should_stop():
+                    should_stop = True
+                    break
+                if self.sample_size:
+                    buffer = np.append(buffer, data)
+                    while len(buffer) > self.sample_size:
+                        piece = buffer[:self.sample_size]
+                        buffer = buffer[self.sample_size:]
+                        if np.abs(piece).max() > 1.:
+                            piece = piece / np.abs(piece).max()
+                        sess.run(
+                            self.enqueue,
+                            feed_dict={
+                                self.sample_placeholder: piece,
+                            }
+                        )
+                else:
+                    sess.run(
+                        self.enqueue,
+                        feed_dict={
+                            self.sample_placeholder: data,
+                        }
+                    )
+
+    @staticmethod
+    def _load_sound(filepath):
+        audio, sr = sf.read(filepath)
+        yield audio.T[0], filepath
+        yield audio.T[1], filepath
+
+
+def main():
+    with tf.Session() as sess:
+        coord = tf.train.Coordinator()
+        sample_size = 2 ** 16
+        reader = MultipleAudioReader('./data', coord, 44100, sample_size=sample_size)
+        reader.start_threads(sess)
+        dequeue = reader.dequeue_many(10)
+        for i in range(1000):
+            print('loop:{}'.format(i))
+            result = sess.run(dequeue)
+            print(result.shape)
+            assert result.shape[1] == sample_size
+            print(result)
+        coord.request_stop()
+
+
+if __name__ == '__main__':
+    main()
