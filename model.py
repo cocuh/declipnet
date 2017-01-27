@@ -236,7 +236,7 @@ class Trainer:
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
                     _output_future,
                     label_future,
-                ) * (tf.abs(label_future_f) + 1)
+                )
             )
         with tf.name_scope('AccFuture'):
             acc_future = tf.reduce_mean(
@@ -267,7 +267,7 @@ class Trainer:
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
                     _output_past,
                     label_past,
-                ) * (tf.abs(label_past_f) + 1)
+                )
             )
         with tf.name_scope('AccPast'):
             acc_past = tf.reduce_mean(
