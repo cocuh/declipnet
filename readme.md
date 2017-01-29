@@ -1,7 +1,9 @@
 declipnet
 =========
 
-C91 sigcoww L0 vol.1にて書いた音割れ音源を復元する深層学習モデル．WaveNet + GANで構築されている．
+音割れ音源を復元する深層学習モデル．
+
+C91 sigcoww L0 vol.1にて書いたものに近いがそのものではない．branchを見よ．
 
 https://sigcoww.github.io/posts/2016/11/06/c91.html
 

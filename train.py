@@ -7,7 +7,7 @@ from model import Trainer
 
 def main():
     with tf.Session() as sess:
-        trainer = Trainer(input_channels=512, output_channels=512)
+        trainer = Trainer(input_channels=256, output_channels=256)
         coord = tf.train.Coordinator()
         reader = MultipleAudioReader('./data', coord, sample_rate=44100, sample_size=2 ** 13)
         batch_num = 1

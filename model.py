@@ -6,7 +6,7 @@ class WaveNet:
                  name='wavenet', dilations=None,
                  reuse=False, predict_future=True,
                  input_channels=512, output_channels=512,
-                 residual_channels=128, dilation_channels=128, skip_channels=1024,
+                 residual_channels=128, dilation_channels=128, skip_channels=512,
                  tanh_skip=False,
                  ):
         if dilations is None:
@@ -299,8 +299,8 @@ class Trainer:
         tf.summary.scalar('past_loss_total', loss_past)
         tf.summary.scalar('past_acc', acc_past)
 
-        self.optimizer_future = tf.train.AdamOptimizer(learning_rate)
-        self.optimizer_past = tf.train.AdamOptimizer(learning_rate)
+        self.optimizer_future = tf.train.AdamOptimizer(learning_rate, 0.4)
+        self.optimizer_past = tf.train.AdamOptimizer(learning_rate, 0.4)
         op_minimize_future_loss = self.optimizer_future.minimize(
             loss_future,
             var_list=self.pred_future.get_trainable_variables(),
