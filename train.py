@@ -9,7 +9,7 @@ def main():
     with tf.Session() as sess:
         trainer = Trainer(input_channels=512, output_channels=512)
         coord = tf.train.Coordinator()
-        reader = MultipleAudioReader('./data', coord, sample_rate=44100, sample_size=2 ** 14)
+        reader = MultipleAudioReader('./data', coord, sample_rate=44100, sample_size=2 ** 13)
         batch_num = 1
 
         input_batch_f = reader.dequeue_many(batch_num)
@@ -17,7 +17,9 @@ def main():
         op_summary = tf.summary.merge_all()
         writer = tf.summary.FileWriter('result/log', graph=tf.get_default_graph())
         tf.global_variables_initializer().run()
+        
         reader.start_threads(sess, 8)
+            
         for iteration in range(10000000):
             loss_future, loss_past, _, summary = sess.run(
                 [

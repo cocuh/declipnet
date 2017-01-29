@@ -25,6 +25,7 @@ class MultipleAudioReader:
                  sample_rate: int,
                  audio_patterns=None,
                  sample_size=2 ** 16,
+                 silence_threshold=0.3,
                  queue_size=32,
                  enqueue_num_per_piece=2,
                  ):
@@ -49,6 +50,7 @@ class MultipleAudioReader:
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
         self.threads = []
         self.enqueue_num_per_piece = enqueue_num_per_piece
+        self.silence_threshold = silence_threshold
         if len(find_files(self.audio_dir, self.audio_patterns)) == 0:
             raise ValueError('file not found')
 
@@ -90,6 +92,8 @@ class MultipleAudioReader:
                         buffer = buffer[self.sample_size:]
                         if np.abs(piece).max() > 1.:
                             piece = piece / np.abs(piece).max()
+                        if np.abs(piece).max() < self.silence_threshold:
+                            continue
                         for _ in range(self.enqueue_num_per_piece):
                             sess.run(
                                 self.enqueue,

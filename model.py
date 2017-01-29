@@ -3,12 +3,15 @@ import tensorflow as tf
 
 class WaveNet:
     def __init__(self,
-                 name='wavenet', dilations=[2 ** i for i in [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8]],
+                 name='wavenet', dilations=None,
                  reuse=False, predict_future=True,
                  input_channels=512, output_channels=512,
-                 residual_channels=128, dilation_channels=128, skip_channels=128,
+                 residual_channels=128, dilation_channels=128, skip_channels=1024,
                  tanh_skip=False,
                  ):
+        if dilations is None:
+            dilations = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+                         1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
         self.name = name
         self.reuse = reuse
         self.input_channels = input_channels
