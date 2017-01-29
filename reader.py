@@ -26,6 +26,7 @@ class MultipleAudioReader:
                  audio_patterns=None,
                  sample_size=2 ** 16,
                  queue_size=32,
+                 enqueue_num_per_piece=2,
                  ):
         if audio_patterns is None:
             audio_patterns = ['*.ogg']
@@ -47,6 +48,7 @@ class MultipleAudioReader:
         )
         self.enqueue = self.queue.enqueue([self.sample_placeholder])
         self.threads = []
+        self.enqueue_num_per_piece = enqueue_num_per_piece
         if len(find_files(self.audio_dir, self.audio_patterns)) == 0:
             raise ValueError('file not found')
 
@@ -88,19 +90,21 @@ class MultipleAudioReader:
                         buffer = buffer[self.sample_size:]
                         if np.abs(piece).max() > 1.:
                             piece = piece / np.abs(piece).max()
+                        for _ in range(self.enqueue_num_per_piece):
+                            sess.run(
+                                self.enqueue,
+                                feed_dict={
+                                    self.sample_placeholder: piece,
+                                }
+                            )
+                else:
+                    for _ in range(self.enqueue_num_per_piece):
                         sess.run(
                             self.enqueue,
                             feed_dict={
-                                self.sample_placeholder: piece,
+                                self.sample_placeholder: data,
                             }
                         )
-                else:
-                    sess.run(
-                        self.enqueue,
-                        feed_dict={
-                            self.sample_placeholder: data,
-                        }
-                    )
 
     @staticmethod
     def _load_sound(filepath):

@@ -1,10 +1,4 @@
-import os
-
-import soundfile as sf
 import tensorflow as tf
-import time
-
-from reader import MultipleAudioReader
 
 
 class WaveNet:
@@ -12,7 +6,7 @@ class WaveNet:
                  name='wavenet', dilations=[2 ** i for i in [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8]],
                  reuse=False, predict_future=True,
                  input_channels=512, output_channels=512,
-                 residual_channels=64, dilation_channels=32, skip_channels=128,
+                 residual_channels=128, dilation_channels=128, skip_channels=128,
                  tanh_skip=False,
                  ):
         self.name = name
@@ -219,7 +213,7 @@ class Trainer:
             labels = self.encoder.encode(input_batch_f, self.output_channels)
         with tf.name_scope('px'):
             _px, _ = tf.nn.moments(tf.one_hot(labels, self.output_channels), [0, 1])
-            self.op_update_px = self.px.assign(0.9 * self.px + 0.1 * _px)
+            self.op_update_px = self.px.assign(0.99 * self.px + 0.01 * _px)
 
         output_future = self.pred_future.create_network(inputs)
         output_future_length = output_future.get_shape().as_list()[1]
