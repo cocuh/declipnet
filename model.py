@@ -9,10 +9,11 @@ from reader import MultipleAudioReader
 
 class WaveNet:
     def __init__(self,
-                 name='wavenet', dilations=[2 ** i for i in [1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8]],
+                 name='wavenet', dilations=[2 ** i for i in [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5, 6, 7, 8]],
                  reuse=False, predict_future=True,
                  input_channels=512, output_channels=512,
-                 residual_channels=64, dilation_channels=32, skip_channels=64,
+                 residual_channels=64, dilation_channels=32, skip_channels=128,
+                 tanh_skip=False,
                  ):
         self.name = name
         self.reuse = reuse
@@ -24,6 +25,7 @@ class WaveNet:
         self.dilations = dilations
         self.predict_future = predict_future
         self.trainable_variables = []
+        self.tanh_skip = tanh_skip
 
     def create_network(self, input_batch: tf.Tensor) -> tf.Tensor:
         batch_num = input_batch.get_shape().as_list()[0]
@@ -73,6 +75,8 @@ class WaveNet:
                         skip = tf.nn.bias_add(tf.nn.conv1d(
                             dilation_layer, W_skip, stride=1, padding='SAME'
                         ), b_skip)
+                        if self.tanh_skip:
+                            skip = tf.tanh(skip)
 
                         dense_output_length = tf.shape(dense)[1]
                         if self.predict_future:

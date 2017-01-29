@@ -18,7 +18,7 @@ def main():
         writer = tf.summary.FileWriter('result/log', graph=tf.get_default_graph())
         tf.global_variables_initializer().run()
         reader.start_threads(sess, 8)
-        for iteration in range(1, 100000):
+        for iteration in range(10000000):
             loss_future, loss_past, _, summary = sess.run(
                 [
                     trainer.loss_future,
@@ -36,8 +36,7 @@ def main():
             )
             writer.add_summary(summary, iteration)
             if iteration % 10000 == 0:
-                var_list = trainer.get_variables()
-                saver = tf.train.Saver(var_list)
+                saver = tf.train.Saver()
                 if not os.path.exists('result/snapshot/'):
                     os.makedirs('result/snapshot/', exist_ok=True)
                 saver.save(sess, 'result/snapshot/{:08d}.data'.format(iteration))

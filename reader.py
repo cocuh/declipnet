@@ -104,9 +104,12 @@ class MultipleAudioReader:
 
     @staticmethod
     def _load_sound(filepath):
-        audio, sr = sf.read(filepath)
-        yield audio.T[0], filepath
-        yield audio.T[1], filepath
+        try:
+            audio, sr = sf.read(filepath)
+            yield audio.T[0], filepath
+            yield audio.T[1], filepath
+        except:
+            pass
 
 
 def main():
