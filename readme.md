@@ -3,7 +3,13 @@ declipnet
 
 音割れ音源を復元する深層学習モデル．
 
+Deep neural network model for declipping.
+
 C91 sigcoww L0 vol.1にて書いたものに近いがそのものではない．branchを見よ．
+
+It uses WaveNets to predict conditional probability of declipped point from given past and future audio points.
+In this branch, GAN technique is not used.
+This code is a artifact of my hobby-research which is published as a doujinshi, C91 sigcoww L0 vol.1 pp.25-36.
 
 https://sigcoww.github.io/posts/2016/11/06/c91.html
 
