@@ -235,8 +235,8 @@ class Trainer:
             _output_future = tf.slice(output_future, [0, 0, 0], [-1, output_future_length - 1, -1])
             loss_ce_future = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    _output_future,
-                    label_future,
+                    logits=_output_future,
+                    labels=label_future,
                 )
             )
         with tf.name_scope('AccFuture'):
@@ -266,8 +266,8 @@ class Trainer:
             _output_past = tf.slice(output_past, [0, 1, 0], [-1, -1, -1])
             loss_ce_past = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    _output_past,
-                    label_past,
+                    logits=_output_past,
+                    labels=label_past,
                 )
             )
         with tf.name_scope('AccPast'):
